@@ -1,0 +1,124 @@
+import streamlit as st
+from google.cloud import bigquery
+import pandas as pd
+import altair as alt
+
+# -----------------------------
+# BigQuery client
+# -----------------------------
+client = bigquery.Client()
+# query = """
+#            SELECT *
+#            FROM `building-heating-system.bhs.buildingB`
+#            LIMIT 100
+# """
+#
+# df = client.query(query).to_dataframe()
+# print(df)
+#
+# st.dataframe(df)
+st.title("Building Temperature Dashboard")
+
+
+# Building list for selector
+buildings = ["buildingA", "buildingB"]
+
+# Streamlit selector
+selected_building = st.selectbox(
+    "Select a building",
+    buildings
+)
+
+# Build table name dynamically
+PROJECT_ID = "building-heating-system"
+DATASET_ID = "bhs"
+
+table_id = f"{PROJECT_ID}.{DATASET_ID}.{selected_building}"
+
+query = f"""
+SELECT
+  ext AS ext_temp,
+  `temp_0` AS indoor_temp,
+  target_temp,
+  sample_time,
+  zoneid,
+FROM `{table_id}`
+"""
+
+df = client.query(query).to_dataframe()
+
+# Show table
+st.dataframe(df)
+
+# -----------------------------
+# Step 3: Select zone
+# -----------------------------
+zones = sorted(df["zoneid"].unique())
+zone = st.selectbox("Select Zone", zones)
+
+zone_df = df[df["zoneid"] == zone]
+# ext, temp.0, target_temp, sample_time
+
+def remove_outliers_iqr(df, columns):
+    clean_df = df.copy()
+    for col in columns:
+        q1 = clean_df[col].quantile(0.25)
+        q3 = clean_df[col].quantile(0.75)
+        iqr = q3 - q1
+        lower = q1 - 1.5 * iqr
+        upper = q3 + 1.5 * iqr
+        clean_df = clean_df[(clean_df[col] >= lower) & (clean_df[col] <= upper)]
+    return clean_df
+
+remove_outliers = st.checkbox("Remove outliers", value=True)
+
+if remove_outliers:
+    df = remove_outliers_iqr(
+        df,
+        columns=["ext_temp", "indoor_temp"]
+    )
+
+
+# df already contains:
+# columns: sample_time, ext_temp, indoor_temp, target_temp
+
+# Ensure datetime
+df["sample_time"] = pd.to_datetime(df["sample_time"])
+
+# Line chart
+# ---------------------------
+plot_cols = ["ext_temp", "indoor_temp", 'target_temp']
+available_cols = [c for c in plot_cols if c in df.columns]
+timestamp_col = 'sample_time'
+if len(available_cols) > 0:
+    st.subheader("Temperature Over Time")
+    st.line_chart(df.set_index(timestamp_col)[available_cols])
+else:
+    st.warning("No temperature columns available to plot.")
+
+# Transform to long format for Altair
+# df_long = df.melt(
+#     id_vars=["sample_time"],
+#     value_vars=["ext_temp", "indoor_temp", "target_temp"],
+#     var_name="temperature_type",
+#     value_name="temperature"
+# )
+
+# Altair line chart
+# chart = (
+#     alt.Chart(df_long)
+#     .mark_line()
+#     .encode(
+#         x=alt.X("sample_time:T", title="Date"),
+#         y=alt.Y("temperature:Q", title="Temperature"),
+#         color=alt.Color("temperature_type:N", title="Type"),
+#         tooltip=["sample_time:T", "temperature_type:N", "temperature:Q"]
+#     )
+#     .properties(
+#         width=900,
+#         height=400
+#     )
+#     .interactive()
+# )
+#
+# st.altair_chart(chart, use_container_width=True)
