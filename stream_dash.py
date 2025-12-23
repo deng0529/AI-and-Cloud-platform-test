@@ -1,12 +1,24 @@
 import streamlit as st
 from google.cloud import bigquery
 import pandas as pd
-import altair as alt
+# import altair as alt
+from google.oauth2 import service_account
+
+# for cloud run
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"]
+)
+
+client = bigquery.Client(
+    credentials=credentials,
+    project=credentials.project_id,
+)
 
 # -----------------------------
 # BigQuery client
 # -----------------------------
-client = bigquery.Client()
+# for locally run
+# client = bigquery.Client()
 # query = """
 #            SELECT *
 #            FROM `building-heating-system.bhs.buildingB`
