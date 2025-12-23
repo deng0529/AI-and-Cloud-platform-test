@@ -95,15 +95,32 @@ if remove_outliers:
 
 # Ensure datetime
 df["sample_time"] = pd.to_datetime(df["sample_time"])
+df = df.sort_values("sample_time")
+ # add time range slider
+start_time, end_time = st.slider(
+    "Select time range",
+    min_value=df["sample_time"].min().to_pydatetime(),
+    max_value=df["sample_time"].max().to_pydatetime(),
+    value=(
+        df["sample_time"].min().to_pydatetime(),
+        df["sample_time"].max().to_pydatetime(),
+    ),
+    format="YYYY-MM-DD HH:mm"
+)
+
+filtered_df = df[
+    (df["sample_time"] >= start_time) &
+    (df["sample_time"] <= end_time)
+]
 
 # Line chart
 # ---------------------------
 plot_cols = ["ext_temp", "indoor_temp", 'target_temp']
-available_cols = [c for c in plot_cols if c in df.columns]
+available_cols = [c for c in plot_cols if c in filtered_df.columns]
 timestamp_col = 'sample_time'
 if len(available_cols) > 0:
     st.subheader("Temperature Over Time")
-    st.line_chart(df.set_index(timestamp_col)[available_cols])
+    st.line_chart(filtered_df.set_index(timestamp_col)[available_cols])
 else:
     st.warning("No temperature columns available to plot.")
 
