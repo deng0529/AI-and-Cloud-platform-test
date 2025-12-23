@@ -29,7 +29,8 @@ client = bigquery.Client(
 # print(df)
 #
 # st.dataframe(df)
-st.title("Building Temperature Dashboard")
+st.title("Building Temperature Dashboard based on Bigquery + Google Cloud Storage")
+selected_building = st.selectbox()
 
 
 # Building list for selector
